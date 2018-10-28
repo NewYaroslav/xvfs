@@ -6,7 +6,7 @@ using namespace std;
 
 int main()
 {
-    xvfs VFS("test.hex", 48, xvfs::USE_ZLIB_LEVEL_9);
+    xvfs VFS("test.hex", 48, xvfs::USE_MINLIZO);
     if(VFS.is_open()) cout << "is_open" << endl;
     // тестовые данные
     int test_size_1 = 4567;
@@ -28,7 +28,7 @@ int main()
         test_data_3[i] = rand() % 4;
     }
 
-    for(int i = 0; i < 200; ++i) {
+    for(int i = 0; i < 10; ++i) {
         if(VFS.write_file("xxx_" + std::to_string(i), test_data_1, test_size_1)) cout << "write xxx_" + std::to_string(i) + " ok" << endl;
         else cout << "write xxx_" + std::to_string(i) + " error" << endl;
     }
@@ -119,17 +119,19 @@ int main()
     else cout << "read test_3 error" << endl;
 
 
-    for(int i = 0; i < 200; ++i) {
+    for(int i = 0; i < 10; ++i) {
         if(VFS.delete_file("xxx_" + std::to_string(i))) cout << "delete xxx_" + std::to_string(i) + " ok" << endl;
         else cout << "delete xxx_" + std::to_string(i) + " error" << endl;
     }
 
     unsigned long sector_size = 0;
+    long compression_type = 0;
     std::vector<xvfs::_xvfs_file_header> files;
     std::vector<unsigned long> empty_sectors;
-    VFS.get_info(sector_size, files, empty_sectors);
+    VFS.get_info(sector_size, compression_type, files, empty_sectors);
 
     cout << "sector size " << sector_size << endl;
+    cout << "compression type " << compression_type << endl;
     cout << "files " << files.size() << endl;
     for(size_t i = 0; i < files.size(); ++i) {
         cout << "*" << endl;

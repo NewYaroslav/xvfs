@@ -10,6 +10,10 @@
 #include <zlib.h>
 #endif
 
+#ifdef XFVS_USE_MINLIZO
+#include <minilzo.h>
+#endif
+
 class xvfs {
 public:
 
@@ -49,7 +53,7 @@ private:
      */
     struct _xvfs_header {
         unsigned long sector_size;                      /**< Размер сектора */
-        int compression_type;                           /**< Тип компрессии */
+        long compression_type;                           /**< Тип компрессии */
         std::vector<_xvfs_file_header> files;           /**< Файлы */
         std::vector<unsigned long> empty_sectors;       /**< Пустые сектора */
         unsigned long get_size() {
@@ -94,7 +98,8 @@ public:
         USE_ZLIB_LEVEL_6 = 6,
         USE_ZLIB_LEVEL_7 = 7,
         USE_ZLIB_LEVEL_8 = 8,
-        USE_ZLIB_LEVEL_9 = 9
+        USE_ZLIB_LEVEL_9 = 9,
+        USE_MINLIZO = 100,
     };
 
     /** \brief Инициализировать виртуальную файловую систему
@@ -180,8 +185,9 @@ public:
      * \param files файлы
      * \param empty_sectors пустые секторы
      */
-    inline void get_info(unsigned long& sector_size, std::vector<_xvfs_file_header>& files, std::vector<unsigned long>& empty_sectors) {
+    inline void get_info(unsigned long& sector_size, long& compression_type, std::vector<_xvfs_file_header>& files, std::vector<unsigned long>& empty_sectors) {
         sector_size = xvfs_header.sector_size;
+        compression_type = xvfs_header.compression_type;
         files = xvfs_header.files;
         empty_sectors = xvfs_header.empty_sectors;
     }

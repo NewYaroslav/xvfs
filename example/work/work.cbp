@@ -23,13 +23,16 @@
 				<Compiler>
 					<Add option="-O2" />
 					<Add option="-DXFVS_USE_ZLIB" />
+					<Add option="-DXFVS_USE_MINLIZO" />
 					<Add directory="../../src" />
 					<Add directory="../../lib/zlib" />
+					<Add directory="../../lib/minilzo-2.10" />
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
 					<Add directory="../../src" />
 					<Add directory="../../lib/zlib" />
+					<Add directory="../../lib/minilzo-2.10" />
 				</Linker>
 			</Target>
 		</Build>
@@ -37,6 +40,12 @@
 			<Add option="-Wall" />
 			<Add option="-fexceptions" />
 		</Compiler>
+		<Unit filename="../../lib/minilzo-2.10/lzoconf.h" />
+		<Unit filename="../../lib/minilzo-2.10/lzodefs.h" />
+		<Unit filename="../../lib/minilzo-2.10/minilzo.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../lib/minilzo-2.10/minilzo.h" />
 		<Unit filename="../../lib/zlib/adler32.c">
 			<Option compilerVar="CC" />
 		</Unit>
