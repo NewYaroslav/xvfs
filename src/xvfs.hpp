@@ -4,6 +4,12 @@
 #include <string>
 #include <vector>
 
+//#define XFVS_USE_ZLIB
+
+#ifdef XFVS_USE_ZLIB
+#include <zlib.h>
+#endif
+
 class xvfs {
 public:
 
@@ -12,6 +18,7 @@ public:
     struct _xvfs_file_header {
         long long hash;                                 /**< Хэш файла */
         unsigned long size;                             /**< Размер файла */
+        unsigned long real_size;
         unsigned long start_sector;                     /**< Начальный сектор файла */
 
         _xvfs_file_header() {};
@@ -19,6 +26,14 @@ public:
         _xvfs_file_header(long long _hash, unsigned long _size, unsigned long _start_sector) {
             hash = _hash;
             size = _size;
+            real_size = _size;
+            start_sector = _start_sector;
+        }
+
+        _xvfs_file_header(long long _hash, unsigned long _size, unsigned long _start_sector, unsigned long _real_size) {
+            hash = _hash;
+            size = _size;
+            real_size = _real_size;
             start_sector = _start_sector;
         }
 
@@ -34,11 +49,12 @@ private:
      */
     struct _xvfs_header {
         unsigned long sector_size;                      /**< Размер сектора */
+        int compression_type;                           /**< Тип компрессии */
         std::vector<_xvfs_file_header> files;           /**< Файлы */
         std::vector<unsigned long> empty_sectors;       /**< Пустые сектора */
         unsigned long get_size() {
             unsigned long size = sizeof(sector_size) +
-                3 * sizeof(unsigned long) + // размер раголовка, количества файлов, пустых секторов
+                4 * sizeof(unsigned long) + // размер раголовка, количества файлов, пустых секторов
                 files.size() * sizeof(_xvfs_file_header) + // объем всех файлов
                 empty_sectors.size() * sizeof(unsigned long); // пустые сектора
             return size;
@@ -62,10 +78,24 @@ private:
 
     void init_xvfs_header();
     void init_xvfs_header(int sector_size);
+    void init_xvfs_header(int sector_size, int compression_type);
 
     const long long poly = 0xC96C5795D7870F42;
     void generate_table();
 public:
+
+    enum xfvsCompressionType {
+        NO_COMPRESSION = 0,
+        USE_ZLIB_LEVEL_1 = 1,
+        USE_ZLIB_LEVEL_2 = 2,
+        USE_ZLIB_LEVEL_3 = 3,
+        USE_ZLIB_LEVEL_4 = 4,
+        USE_ZLIB_LEVEL_5 = 5,
+        USE_ZLIB_LEVEL_6 = 6,
+        USE_ZLIB_LEVEL_7 = 7,
+        USE_ZLIB_LEVEL_8 = 8,
+        USE_ZLIB_LEVEL_9 = 9
+    };
 
     /** \brief Инициализировать виртуальную файловую систему
      * Данный конструктор открывает или создает файл виртуальноц файловой системы с размером сектора 512 байт
@@ -79,6 +109,8 @@ public:
      * \param sector_size желаемый размер сектора при создании файла
      */
     xvfs(std::string file_name, int sector_size);
+
+    xvfs(std::string file_name, int sector_size, int compression_type);
 
     /** \brief Состояние файла виртуальной файловой системы
      * \return вернет true если файл виртуальной файловой системы был открыт или создан
@@ -99,7 +131,7 @@ public:
      * \param len длина файла
      * \return вернет true в случае успеха
      */
-    bool write_file(long long hash_vfs_file, char* data, unsigned long len);
+    bool write_file(long long hash_vfs_file, char* _data, unsigned long _len);
 
     /** \brief Читать файл
      * Функция сама выделяет память под данные

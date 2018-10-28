@@ -22,11 +22,14 @@
 				<Option compiler="mingw_64_7_3_0" />
 				<Compiler>
 					<Add option="-O2" />
+					<Add option="-DXFVS_USE_ZLIB" />
 					<Add directory="../../src" />
+					<Add directory="../../lib/zlib" />
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
 					<Add directory="../../src" />
+					<Add directory="../../lib/zlib" />
 				</Linker>
 			</Target>
 		</Build>
@@ -34,6 +37,62 @@
 			<Add option="-Wall" />
 			<Add option="-fexceptions" />
 		</Compiler>
+		<Unit filename="../../lib/zlib/adler32.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../lib/zlib/compress.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../lib/zlib/crc32.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../lib/zlib/crc32.h" />
+		<Unit filename="../../lib/zlib/deflate.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../lib/zlib/deflate.h" />
+		<Unit filename="../../lib/zlib/gzclose.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../lib/zlib/gzguts.h" />
+		<Unit filename="../../lib/zlib/gzlib.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../lib/zlib/gzread.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../lib/zlib/gzwrite.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../lib/zlib/infback.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../lib/zlib/inffast.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../lib/zlib/inffast.h" />
+		<Unit filename="../../lib/zlib/inffixed.h" />
+		<Unit filename="../../lib/zlib/inflate.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../lib/zlib/inflate.h" />
+		<Unit filename="../../lib/zlib/inftrees.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../lib/zlib/inftrees.h" />
+		<Unit filename="../../lib/zlib/trees.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../lib/zlib/trees.h" />
+		<Unit filename="../../lib/zlib/uncompr.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../lib/zlib/zconf.h" />
+		<Unit filename="../../lib/zlib/zlib.h" />
+		<Unit filename="../../lib/zlib/zutil.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="../../lib/zlib/zutil.h" />
 		<Unit filename="../../src/xvfs.cpp" />
 		<Unit filename="../../src/xvfs.hpp" />
 		<Unit filename="main.cpp" />

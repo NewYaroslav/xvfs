@@ -6,7 +6,7 @@ using namespace std;
 
 int main()
 {
-    xvfs VFS("test.hex", 48);
+    xvfs VFS("test.hex", 48, xvfs::USE_ZLIB_LEVEL_9);
     if(VFS.is_open()) cout << "is_open" << endl;
     // тестовые данные
     int test_size_1 = 4567;
@@ -19,13 +19,13 @@ int main()
     char test_data_3[11234];
 
     for(int i = 0; i < test_size_1; ++i) {
-        test_data_1[i] = rand() % 255;
+        test_data_1[i] = rand() % 2;
     }
     for(int i = 0; i < test_size_2; ++i) {
-        test_data_2[i] = rand() % 255;
+        test_data_2[i] = rand() % 3;
     }
     for(int i = 0; i < test_size_3; ++i) {
-        test_data_3[i] = rand() % 255;
+        test_data_3[i] = rand() % 4;
     }
 
     for(int i = 0; i < 200; ++i) {
@@ -72,13 +72,13 @@ int main()
     cout << "read file test_2" << endl;
     char* read_data_2 = NULL;
     long file_size_2 = VFS.read_file("test_2", read_data_2);
-    if(file_size_2 != - 1) cout << "read test_2, size:" << file_size_2 << endl;
+    if(file_size_2 != - 1) cout << "read test_2, size: " << file_size_2 << endl;
     else cout << "read test_2 error" << endl;
 
     cout << "read file test_3" << endl;
     char* read_data_3 = NULL;
     long file_size_3 = VFS.read_file("test_3", read_data_3);
-    if(file_size_3 != - 1) cout << "read test_3, size:" << file_size_3 << endl;
+    if(file_size_3 != - 1) cout << "read test_3, size: " << file_size_3 << endl;
     else cout << "read test_3 error" << endl;
 
 
@@ -115,7 +115,7 @@ int main()
     else cout << "delete test_3 error" << endl;
 
     file_size_3 = VFS.read_file("test_3", read_data_3);
-    if(file_size != - 1) cout << "read test_3, size:" << file_size_3 << endl;
+    if(file_size != - 1) cout << "read test_3, size: " << file_size_3 << endl;
     else cout << "read test_3 error" << endl;
 
 
@@ -134,7 +134,8 @@ int main()
     for(size_t i = 0; i < files.size(); ++i) {
         cout << "*" << endl;
         cout << "files hash: " << files[i].hash << endl;
-        cout << "files size: " << files[i].size << endl;
+        cout << "files compress size: " << files[i].size << endl;
+        cout << "files uncompress size: " << files[i].real_size << endl;
         cout << "files start sector: " << files[i].start_sector << endl;
     }
     cout << "empty_sectors " << empty_sectors.size() << endl;

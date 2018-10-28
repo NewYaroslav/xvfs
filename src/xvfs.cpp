@@ -5,6 +5,10 @@
 #include <cstring>
 #include <cmath>
 
+#ifdef XFVS_USE_ZLIB
+#include <zlib.h>
+#endif
+
 
 static long long xvfs_crc64_table[256];
 static bool is_svfs_crc64_table = false;
@@ -30,7 +34,7 @@ xvfs::xvfs(std::string file_name) {
     if(!check_file(file_name)) {
         is_open_file = create_file(file_name);
         if(is_open_file) {
-            init_xvfs_header();
+            init_xvfs_header(512, NO_COMPRESSION);
             save_header();
         }
     } else {
@@ -49,7 +53,26 @@ xvfs::xvfs(std::string file_name, int sector_size) {
         }
         is_open_file = create_file(file_name);
         if(is_open_file) {
-            init_xvfs_header(sector_size);
+            init_xvfs_header(sector_size, NO_COMPRESSION);
+            save_header();
+        }
+    } else {
+        is_open_file = read_header();
+    }
+}
+
+xvfs::xvfs(std::string file_name, int sector_size, int compression_type) {
+    const unsigned long min_sector_size = 32;
+    xvfs::file_name = file_name; // запоминаем имя файла виртуальноц файловой системы
+    generate_table(); // инициализируем crc таблицу
+    if(!check_file(file_name)) {
+        if(sector_size < min_sector_size || compression_type < 0 || compression_type > USE_ZLIB_LEVEL_9) {
+            is_open_file = false;
+            return;
+        }
+        is_open_file = create_file(file_name);
+        if(is_open_file) {
+            init_xvfs_header(sector_size, compression_type);
             save_header();
         }
     } else {
@@ -74,12 +97,20 @@ bool xvfs::read_header() {
     //std::cout << "header_size " << header_size << std::endl;
     if(header_size > file_size) {
         fin.close();
-        //std::cout << "error header_size > file_size" << std::endl;
         return false;
     }
     // читаем размер сектора
     fin.read(reinterpret_cast<char *>(& xvfs_header.sector_size),sizeof ( xvfs_header.sector_size));
+    // читаем тип компресии
+    fin.read(reinterpret_cast<char *>(& xvfs_header.compression_type),sizeof ( xvfs_header.compression_type));
     //std::cout << "sector_size " << xvfs_header.sector_size << std::endl;
+
+#   ifndef XFVS_USE_ZLIB
+    if(xvfs_header.compression_type != NO_COMPRESSION) {
+        fin.close();
+        return false;
+    }
+#   endif
 
     const unsigned long min_sector_size = 32;
     if(xvfs_header.sector_size < min_sector_size) {
@@ -125,7 +156,7 @@ bool xvfs::read_header() {
     }
     // парсим header_data
     unsigned long files_size = 0;
-    unsigned long offset = sizeof (header_size) + sizeof (xvfs_header.sector_size);
+    unsigned long offset = sizeof (header_size) + sizeof (xvfs_header.sector_size) + sizeof (xvfs_header.compression_type);
     files_size = ((unsigned long*)(header_data + offset))[0];
     //std::cout << "files_size " << files_size << std::endl;
     offset += sizeof (files_size);
@@ -315,10 +346,30 @@ unsigned long xvfs::get_last_new_sector() {
     return last_sector;
 }
 
-bool xvfs::write_file(long long hash_vfs_file, char* data, unsigned long len) {
+bool xvfs::write_file(long long hash_vfs_file, char* _data, unsigned long _len) {
     if(!is_open_file) return false;
     long pos = binary_search_first(xvfs_header.files, hash_vfs_file, 0, xvfs_header.files.size() - 1);
     unsigned long start_sector;
+#   ifdef XFVS_USE_ZLIB
+    unsigned long len;
+    char* data = NULL;
+    if(xvfs_header.compression_type != NO_COMPRESSION) {
+        len = _len + 0.01 *_len + 12;
+        data = new char[len];
+        if(compress2((unsigned char*)data, &len, (const unsigned char*)_data, _len, xvfs_header.compression_type) != Z_OK) {
+            delete[] data;
+            return false;
+        }
+        //std::cout << "compress2 " << len << " old size " << _len << " type " << xvfs_header.compression_type << std::endl;
+    } else {
+        data = _data;
+        len = _len;
+        //std::cout << "no compress2 " << std::endl;
+    }
+#   else
+    char* data = _data;
+    unsigned long& len = _len;
+#   endif
     if(pos == -1) { // если файла нет
         if(xvfs_header.empty_sectors.size() > 0) { // если есть пустые сектора
             start_sector = xvfs_header.empty_sectors[0];
@@ -327,9 +378,14 @@ bool xvfs::write_file(long long hash_vfs_file, char* data, unsigned long len) {
             start_sector = get_last_new_sector();
         }
         // пишем файл
-        if(write_data(start_sector, data, len) == -1) return false;
+        if(write_data(start_sector, data, len) == -1) {
+#           ifdef XFVS_USE_ZLIB
+            if(xvfs_header.compression_type != NO_COMPRESSION) delete[] data;
+#           endif
+            return false;
+        }
         // добавим файл в заголовок
-        _xvfs_file_header i_file_header(hash_vfs_file, len, start_sector);
+        _xvfs_file_header i_file_header(hash_vfs_file, len, start_sector, _len);
 
         if(xvfs_header.files.size() > 0) {
             auto it = std::lower_bound(xvfs_header.files.begin(), xvfs_header.files.end(), i_file_header);
@@ -341,16 +397,36 @@ bool xvfs::write_file(long long hash_vfs_file, char* data, unsigned long len) {
         start_sector = xvfs_header.files[pos].start_sector;
         if(std::ceil((double)len / (double)xvfs_header.sector_size) != std::ceil((double)xvfs_header.files[pos].size / (double)xvfs_header.sector_size)) { // если длина файла не совпадает
             // очистим данные
-            if(!clear_data(start_sector, false)) return false;
-            if(write_data(start_sector, data, len) == -1) return false;
+            if(!clear_data(start_sector, false)) {
+#               ifdef XFVS_USE_ZLIB
+                if(xvfs_header.compression_type != NO_COMPRESSION) delete[] data;
+#               endif
+                return false;
+            }
+            if(write_data(start_sector, data, len) == -1) {
+#               ifdef XFVS_USE_ZLIB
+                if(xvfs_header.compression_type != NO_COMPRESSION) delete[] data;
+#               endif
+                return false;
+            }
         } else { // если длина файла совпадает
             // запишем данные туда же
-            if(write_data(start_sector, data, len) == -1) return false;
+            if(write_data(start_sector, data, len) == -1) {
+#               ifdef XFVS_USE_ZLIB
+                if(xvfs_header.compression_type != NO_COMPRESSION) delete[] data;
+#               endif
+                return false;
+            }
         } //
-
+#       ifndef XFVS_USE_ZLIB
         xvfs_header.files[pos] = _xvfs_file_header(hash_vfs_file, len, start_sector);
+#       else
+        xvfs_header.files[pos] = _xvfs_file_header(hash_vfs_file, len, start_sector, _len);
+#       endif
     } //
-
+#   ifdef XFVS_USE_ZLIB
+    if(xvfs_header.compression_type != NO_COMPRESSION) delete[] data;
+#   endif
     // сохраняем заголовок
     return save_header();
 }
@@ -382,6 +458,7 @@ long xvfs::read_file(long long hash_vfs_file, char*& data) {
     if(pos == -1) {
         return -1;
     } else {
+#       ifndef XFVS_USE_ZLIB
         bool is_biffer_init = false;
         if(data == NULL) {
             data = new char[xvfs_header.files[pos].size];
@@ -394,8 +471,57 @@ long xvfs::read_file(long long hash_vfs_file, char*& data) {
             }
             return -1;
         }
+#       else
+        if(xvfs_header.compression_type == 0) {
+            bool is_biffer_init = false;
+            if(data == NULL) {
+                data = new char[xvfs_header.files[pos].size];
+                is_biffer_init = true;
+            }
+            if(read_data(xvfs_header.files[pos].start_sector, data, xvfs_header.files[pos].size) == -1) {
+                if(is_biffer_init) {
+                    delete[] data;
+                    data = NULL;
+                }
+                return -1;
+            }
+        } else {
+            bool is_biffer_init = false;
+            unsigned long real_size = xvfs_header.files[pos].real_size;
+            char* raw_data = new char[xvfs_header.files[pos].size];
+            if(data == NULL) {
+                data = new char[real_size];
+                is_biffer_init = true;
+            }
+            // читаем сырые данные
+            if(read_data(xvfs_header.files[pos].start_sector, raw_data, xvfs_header.files[pos].size) == -1) {
+                if(is_biffer_init) {
+                    delete[] data;
+                    data = NULL;
+                }
+                delete[] raw_data;
+                //std::cout << "err read_data" << std::endl;
+                return -1;
+            }
+            // декомпрессия сырых данных
+            int err_uncompress = uncompress((unsigned char*)data, &real_size, (unsigned char*)raw_data, xvfs_header.files[pos].size);
+
+            if(err_uncompress != Z_OK) {
+                if(is_biffer_init) {
+                    delete[] data;
+                    data = NULL;
+                }
+                delete[] raw_data;
+                std::cout << "err uncompress " << err_uncompress << std::endl;
+                return -1;
+            }
+            delete[] raw_data;
+            //std::cout << "real_size " << real_size << " xvfs_header real_size " << xvfs_header.files[pos].real_size << std::endl;
+            return real_size;
+        }
+#       endif
     }
-    return xvfs_header.files[pos].size;
+    return xvfs_header.files[pos].real_size;
 }
 
 long xvfs::read_file(std::string vfs_file_name, char*& data) {
@@ -479,14 +605,10 @@ long xvfs::binary_search_first(std::vector<_xvfs_file_header> arr, long long key
     return -1;
 }
 
-void xvfs::init_xvfs_header() {
-    xvfs_header.sector_size = 512;
-    xvfs_header.files.resize(0);
-    xvfs_header.empty_sectors.resize(0);
-}
 
-void xvfs::init_xvfs_header(int sector_size) {
+void xvfs::init_xvfs_header(int sector_size, int compression_type) {
     xvfs_header.sector_size = sector_size;
+    xvfs_header.compression_type = compression_type;
     xvfs_header.files.resize(0);
     xvfs_header.empty_sectors.resize(0);
 }
@@ -512,6 +634,9 @@ bool xvfs::save_header() {
     // запищем размер сектора
     std::memcpy(buf + offset, &xvfs_header.sector_size, sizeof(xvfs_header.sector_size));
     offset += sizeof(xvfs_header.sector_size);
+    // запищем тип компресии файлов
+    std::memcpy(buf + offset, &xvfs_header.compression_type, sizeof(xvfs_header.compression_type));
+    offset += sizeof(xvfs_header.compression_type);
     // запишем количество файлов
     std::memcpy(buf + offset, &files_size, sizeof(files_size));
     offset += sizeof(files_size);
