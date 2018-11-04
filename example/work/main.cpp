@@ -18,6 +18,8 @@ int main()
     int test_size_3 = 11234;
     char test_data_3[11234];
 
+    int test_size_4 = 0;
+
     for(int i = 0; i < test_size_1; ++i) {
         test_data_1[i] = rand() % 2;
     }
@@ -37,8 +39,6 @@ int main()
     if(VFS.write_file("test_1", test_data_1, test_size_1)) cout << "write test_1 ok" << endl;
     else cout << "write test_1 error" << endl;
 
-    //return 0;
-
     cout << "write to file test_2" << endl;
     if(VFS.write_file("test_2", test_data_2, test_size_2)) cout << "write test_2 ok" << endl;
     else cout << "write test_2 error" << endl;
@@ -47,11 +47,13 @@ int main()
     if(VFS.write_file("test_3", test_data_3, test_size_3)) cout << "write test_3 ok" << endl;
     else cout << "write test_3 error" << endl;
 
+    cout << "write to file test_4" << endl;
+    if(VFS.write_file("test_4", test_data_3, test_size_4)) cout << "write test_4 ok" << endl;
+    else cout << "write test_4 error" << endl;
+
     cout << "write to file test_1" << endl;
     if(VFS.write_file("test_1", test_data_3, test_size_3)) cout << "write test_1 ok" << endl;
     else cout << "write test_1 error" << endl;
-
-    //return 0;
 
     cout << "read file test_0" << endl;
     char* read_data = NULL;
@@ -79,6 +81,12 @@ int main()
     char* read_data_3 = NULL;
     long file_size_3 = VFS.read_file("test_3", read_data_3);
     if(file_size_3 != - 1) cout << "read test_3, size: " << file_size_3 << endl;
+    else cout << "read test_3 error" << endl;
+
+    cout << "read file test_4" << endl;
+    char* read_data_4 = NULL;
+    long file_size_4 = VFS.read_file("test_4", read_data_4);
+    if(file_size_4 != - 1) cout << "read test_4, size: " << file_size_4 << endl;
     else cout << "read test_3 error" << endl;
 
 
@@ -113,6 +121,9 @@ int main()
 
     if(VFS.delete_file("test_3")) cout << "delete test_3 ok" << endl;
     else cout << "delete test_3 error" << endl;
+
+    if(VFS.delete_file("test_4")) cout << "delete test_4 ok" << endl;
+    else cout << "delete test_4 error" << endl;
 
     file_size_3 = VFS.read_file("test_3", read_data_3);
     if(file_size != - 1) cout << "read test_3, size: " << file_size_3 << endl;

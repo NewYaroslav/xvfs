@@ -115,6 +115,12 @@ public:
      */
     xvfs(std::string file_name, int sector_size);
 
+    /** \brief Инициализировать виртуальную файловую систему
+     * Данный конструктор открывает или создает файл виртуальноц файловой системы с размером сектора sector_size байт и указанным типом компресии
+     * \param file_name имя файла виртуальной файловой системы
+     * \param sector_size желаемый размер сектора при создании файла
+     * \param compression_type желаемый тип компресии (из перечисления xfvsCompressionType)
+     */
     xvfs(std::string file_name, int sector_size, int compression_type);
 
     /** \brief Состояние файла виртуальной файловой системы
@@ -192,8 +198,20 @@ public:
         empty_sectors = xvfs_header.empty_sectors;
     }
 
+    /** \brief Посчитать CRC64
+     * Данную функцию можно использовать для создания уникального id файла
+     * \param crc значение CRC64 (инициализировать в начале 0)
+     * \param stream буфер с данными
+     * \param n размер буфера
+     * \return CRC64
+     */
     long long calculate_crc64(long long crc, const unsigned char* stream, int n);
 
+    /** \brief Посчитать CRC64
+     * Данную функцию можно использовать для создания уникального id файла из строкового имени
+     * \param vfs_file_name имя файла
+     * \return CRC64
+     */
     long long calculate_crc64(std::string vfs_file_name);
 };
 

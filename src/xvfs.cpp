@@ -141,14 +141,13 @@ bool xvfs::read_header() {
     }
 #   endif
 
-
-
     const unsigned long min_sector_size = 32;
     if(xvfs_header.sector_size < min_sector_size) {
         fin.close();
         //std::cout << "error sector_size < min_sector_size" << std::endl;
         return false;
     }
+
     // далее уже нельзя просто считывать заголовок, читаем по секторам
     char* buf = new char[xvfs_header.sector_size];
     char* header_data = new char[header_size];
@@ -213,7 +212,6 @@ bool xvfs::read_header() {
 }
 
 long xvfs::read_data(unsigned long start_sector, char* file_data, unsigned long file_size) {
-    //std::cout << "read_data" << std::endl;
     if(!is_open_file) return -1;
     std::ifstream fin(file_name, std::ios_base::binary); // открываем файл
     if (!fin.is_open()) {
@@ -333,7 +331,8 @@ long xvfs::write_data(unsigned long start_sector, char* file_data, unsigned long
 }
 
 bool xvfs::clear_data(unsigned long start_sector, bool is_first_sector) {
-    if(!is_open_file) return false;
+    if(!is_open_file) return false; // файл не был открыт
+    if(start_sector == 0xFFFFFFFF) return true; // если это последний сектор, просто выходим
     std::fstream fout(file_name, std::ios_base::binary | std::ios::in | std::ios::out | std::ios::ate);
     if (!fout.is_open()) {
         return false; // не смогли октрыть файл
@@ -380,6 +379,21 @@ unsigned long xvfs::get_last_new_sector() {
 bool xvfs::write_file(long long hash_vfs_file, char* _data, unsigned long _len) {
     if(!is_open_file) return false;
     long pos = binary_search_first(xvfs_header.files, hash_vfs_file, 0, xvfs_header.files.size() - 1);
+
+    if(pos == -1 && _len == 0) { // если файл пустой, просто сохраним данные в заголовке
+        // добавим файл в заголовок
+        _xvfs_file_header i_file_header(hash_vfs_file, 0, 0xFFFFFFFF, 0);
+
+        if(xvfs_header.files.size() > 0) {
+            auto it = std::lower_bound(xvfs_header.files.begin(), xvfs_header.files.end(), i_file_header);
+            xvfs_header.files.insert(it, i_file_header);
+        } else {
+            xvfs_header.files.push_back(i_file_header);
+        } // if
+        // сохраняем заголовок
+        return save_header();
+    }
+
     unsigned long start_sector;
 #   if defined(XFVS_USE_ZLIB) || defined(XFVS_USE_MINLIZO)
     unsigned long len;
@@ -388,6 +402,7 @@ bool xvfs::write_file(long long hash_vfs_file, char* _data, unsigned long _len) 
         data = _data;
         len = _len;
     } else
+#   if defined(XFVS_USE_ZLIB)
     if(xvfs_header.compression_type <= USE_ZLIB_LEVEL_9) {
         len = _len + 0.01 *_len + 12;
         data = new char[len];
@@ -396,7 +411,10 @@ bool xvfs::write_file(long long hash_vfs_file, char* _data, unsigned long _len) 
             return false;
         }
         //std::cout << "compress2 " << len << " old size " << _len << " type " << xvfs_header.compression_type << std::endl;
-    } if(xvfs_header.compression_type == USE_MINLIZO) {
+    } else
+#   endif
+#   if defined(XFVS_USE_MINLIZO)
+    if(xvfs_header.compression_type == USE_MINLIZO) {
         len = _len + _len / 16 + 64 + 3;
         data = new char[len];
         unsigned long long lzo_len = len;
@@ -404,9 +422,12 @@ bool xvfs::write_file(long long hash_vfs_file, char* _data, unsigned long _len) 
         len = lzo_len;
         if(r != LZO_E_OK) {
             delete[] data;
-            std::cout << "r != LZO_E_OK" << std::endl;
             return false;
         }
+    } else
+#   endif
+    {
+        return false;
     }
 #   else
     char* data = _data;
@@ -496,6 +517,10 @@ long xvfs::read_file(long long hash_vfs_file, char*& data) {
     if(pos == -1) {
         return -1;
     } else {
+        if(xvfs_header.files[pos].real_size == 0) {
+            data = NULL;
+            return 0;
+        }
 #       if !(defined(XFVS_USE_ZLIB) || defined(XFVS_USE_MINLIZO))
         bool is_biffer_init = false;
         if(data == NULL) {
@@ -523,7 +548,9 @@ long xvfs::read_file(long long hash_vfs_file, char*& data) {
                 }
                 return -1;
             }
-        } else if(xvfs_header.compression_type <= USE_ZLIB_LEVEL_9) {
+        } else
+#       if defined(XFVS_USE_ZLIB)
+        if(xvfs_header.compression_type <= USE_ZLIB_LEVEL_9) {
             bool is_biffer_init = false;
             unsigned long real_size = xvfs_header.files[pos].real_size;
             char* raw_data = new char[xvfs_header.files[pos].size];
@@ -556,7 +583,10 @@ long xvfs::read_file(long long hash_vfs_file, char*& data) {
             delete[] raw_data;
             //std::cout << "real_size " << real_size << " xvfs_header real_size " << xvfs_header.files[pos].real_size << std::endl;
             return real_size;
-        } else if(xvfs_header.compression_type == USE_MINLIZO) {
+        } else
+#       endif
+#       if defined(XFVS_USE_MINLIZO)
+        if(xvfs_header.compression_type == USE_MINLIZO) {
             bool is_biffer_init = false;
             unsigned long long real_size = xvfs_header.files[pos].real_size;
             char* raw_data = new char[xvfs_header.files[pos].size];
@@ -588,6 +618,11 @@ long xvfs::read_file(long long hash_vfs_file, char*& data) {
             delete[] raw_data;
             //std::cout << "real_size " << real_size << " xvfs_header real_size " << xvfs_header.files[pos].real_size << std::endl;
             return real_size;
+        } else
+#       endif
+        {
+            data = NULL;
+            return -1;
         }
 #       endif
     }
