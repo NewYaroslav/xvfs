@@ -24,15 +24,21 @@
 					<Add option="-O2" />
 					<Add option="-DXFVS_USE_ZLIB" />
 					<Add option="-DXFVS_USE_MINLIZO" />
+					<Add option="-DXFVS_USE_LZ4" />
 					<Add directory="../../src" />
 					<Add directory="../../lib/zlib" />
 					<Add directory="../../lib/minilzo-2.10" />
+					<Add directory="../../lib/lz4/lib" />
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
+					<Add library="lz4" />
+					<Add library="zstd" />
 					<Add directory="../../src" />
 					<Add directory="../../lib/zlib" />
 					<Add directory="../../lib/minilzo-2.10" />
+					<Add directory="../../build" />
+					<Add directory="../../lib/lz4/lib" />
 				</Linker>
 			</Target>
 		</Build>

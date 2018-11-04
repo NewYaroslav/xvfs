@@ -6,7 +6,7 @@ using namespace std;
 
 int main()
 {
-    xvfs VFS("test.hex", 48, xvfs::USE_MINLIZO);
+    xvfs VFS("test.hex", 48, xvfs::USE_LZ4);
     if(VFS.is_open()) cout << "is_open" << endl;
     // тестовые данные
     int test_size_1 = 4567;

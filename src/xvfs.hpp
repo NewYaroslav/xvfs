@@ -14,6 +14,10 @@
 #include <minilzo.h>
 #endif
 
+#ifdef XFVS_USE_LZ4
+#include <lz4.h>
+#endif
+
 class xvfs {
 public:
 
@@ -100,6 +104,7 @@ public:
         USE_ZLIB_LEVEL_8 = 8,
         USE_ZLIB_LEVEL_9 = 9,
         USE_MINLIZO = 100,
+        USE_LZ4 = 200
     };
 
     /** \brief Инициализировать виртуальную файловую систему
