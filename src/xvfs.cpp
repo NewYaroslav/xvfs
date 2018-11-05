@@ -1,5 +1,4 @@
 #include "xvfs.hpp"
-#include <fstream>
 #include <iostream>
 #include <algorithm>
 #include <cstring>
@@ -32,16 +31,30 @@ bool xvfs::create_file(std::string file_name) {
     return true;
 }
 
+xvfs::~xvfs() {
+    fvs_file.close();
+}
+
 xvfs::xvfs(std::string file_name) {
     xvfs::file_name = file_name; // запоминаем имя файла виртуальноц файловой системы
     generate_table(); // инициализируем crc таблицу
     if(!check_file(file_name)) {
         is_open_file = create_file(file_name);
         if(is_open_file) {
+            fvs_file = std::fstream(file_name, std::ios_base::binary | std::ios::in | std::ios::out | std::ios::ate);
+            if (!fvs_file.is_open()) {
+                is_open_file = false;
+                return; // не смогли октрыть файл
+            }
             init_xvfs_header(512, NO_COMPRESSION);
             save_header();
         }
     } else {
+        fvs_file = std::fstream(file_name, std::ios_base::binary | std::ios::in | std::ios::out | std::ios::ate);
+        if (!fvs_file.is_open()) {
+            is_open_file = false;
+            return; // не смогли октрыть файл
+        }
         is_open_file = read_header();
 #       ifdef XFVS_USE_MINLIZO
         if(is_open_file && xvfs_header.compression_type == USE_MINLIZO && lzo_init() != LZO_E_OK) {
@@ -63,10 +76,20 @@ xvfs::xvfs(std::string file_name, int sector_size) {
         }
         is_open_file = create_file(file_name);
         if(is_open_file) {
+            fvs_file = std::fstream(file_name, std::ios_base::binary | std::ios::in | std::ios::out | std::ios::ate);
+            if (!fvs_file.is_open()) {
+                is_open_file = false;
+                return; // не смогли октрыть файл
+            }
             init_xvfs_header(sector_size, NO_COMPRESSION);
             save_header();
         }
     } else {
+        fvs_file = std::fstream(file_name, std::ios_base::binary | std::ios::in | std::ios::out | std::ios::ate);
+        if (!fvs_file.is_open()) {
+            is_open_file = false;
+            return; // не смогли октрыть файл
+        }
         is_open_file = read_header();
 #       ifdef XFVS_USE_MINLIZO
         if(is_open_file && xvfs_header.compression_type == USE_MINLIZO && lzo_init() != LZO_E_OK) {
@@ -88,6 +111,11 @@ xvfs::xvfs(std::string file_name, int sector_size, int compression_type) {
         }
         is_open_file = create_file(file_name);
         if(is_open_file) {
+            fvs_file = std::fstream(file_name, std::ios_base::binary | std::ios::in | std::ios::out | std::ios::ate);
+            if (!fvs_file.is_open()) {
+                is_open_file = false;
+                return; // не смогли октрыть файл
+            }
 #           ifdef XFVS_USE_MINLIZO
             if(compression_type == USE_MINLIZO && lzo_init() != LZO_E_OK) {
                 //std::cout << "lzo_init() != LZO_E_OK" << std::endl;
@@ -99,6 +127,11 @@ xvfs::xvfs(std::string file_name, int sector_size, int compression_type) {
             save_header();
         }
     } else {
+        fvs_file = std::fstream(file_name, std::ios_base::binary | std::ios::in | std::ios::out | std::ios::ate);
+        if (!fvs_file.is_open()) {
+            is_open_file = false;
+            return; // не смогли октрыть файл
+        }
         is_open_file = read_header();
 #       ifdef XFVS_USE_MINLIZO
         if(is_open_file && xvfs_header.compression_type == USE_MINLIZO && lzo_init() != LZO_E_OK) {
@@ -111,39 +144,39 @@ xvfs::xvfs(std::string file_name, int sector_size, int compression_type) {
 
 bool xvfs::read_header() {
     //std::cout << "read_header" << std::endl;
-    std::ifstream fin(file_name, std::ios_base::binary); // открываем файл
-    if (!fin.is_open()) {
+    //std::ifstream fvs_file(file_name, std::ios_base::binary); // открываем файл
+    if (!fvs_file.is_open()) {
         return false; // не смогли октрыть файл
     }
-    fin.seekg(0, std::ios::end);
-    unsigned long file_size = fin.tellg();
-    fin.seekg(0, std::ios::beg);
-    fin.clear();
+    fvs_file.seekg(0, std::ios::end);
+    unsigned long file_size = fvs_file.tellg();
+    fvs_file.seekg(0, std::ios::beg);
+    fvs_file.clear();
 
     unsigned long header_size = 0;
     // читаем размер
-    fin.read(reinterpret_cast<char *>(&header_size),sizeof (header_size));
+    fvs_file.read(reinterpret_cast<char *>(&header_size),sizeof (header_size));
     //std::cout << "header_size " << header_size << std::endl;
     if(header_size > file_size) {
-        fin.close();
+        ///fvs_file.close();
         return false;
     }
     // читаем размер сектора
-    fin.read(reinterpret_cast<char *>(& xvfs_header.sector_size),sizeof ( xvfs_header.sector_size));
+    fvs_file.read(reinterpret_cast<char *>(& xvfs_header.sector_size),sizeof ( xvfs_header.sector_size));
     // читаем тип компресии
-    fin.read(reinterpret_cast<char *>(& xvfs_header.compression_type),sizeof ( xvfs_header.compression_type));
+    fvs_file.read(reinterpret_cast<char *>(& xvfs_header.compression_type),sizeof ( xvfs_header.compression_type));
     //std::cout << "sector_size " << xvfs_header.sector_size << std::endl;
 
 #   if !(defined(XFVS_USE_ZLIB) || defined(XFVS_USE_MINLIZO) || defined(XFVS_USE_LZ4))
     if(xvfs_header.compression_type != NO_COMPRESSION) {
-        fin.close();
+        ///fvs_file.close();
         return false;
     }
 #   endif
 
     const unsigned long min_sector_size = 32;
     if(xvfs_header.sector_size < min_sector_size) {
-        fin.close();
+        ///fvs_file.close();
         //std::cout << "error sector_size < min_sector_size" << std::endl;
         return false;
     }
@@ -157,13 +190,13 @@ bool xvfs::read_header() {
 
     while(next_sector != 0xFFFFFFFF) {
         //std::cout << "next_pos " << next_pos << std::endl;
-        fin.seekg(next_pos, std::ios::beg);
-        fin.read(buf, xvfs_header.sector_size);
-        if(!fin) {
-            fin.close();
+        fvs_file.seekg(next_pos, std::ios::beg);
+        fvs_file.read(buf, xvfs_header.sector_size);
+        if(!fvs_file) {
+            ///fvs_file.close();
             delete[] buf;
             delete[] header_data;
-            //std::cout << "error !fin" << std::endl;
+            //std::cout << "error !fvs_file" << std::endl;
             return false;
         }
         unsigned long old_len = len; // запоминаем длину
@@ -177,7 +210,7 @@ bool xvfs::read_header() {
         next_pos = next_sector * xvfs_header.sector_size;
         //std::cout << "next_sector " << next_sector << std::endl;
     }
-    fin.close();
+    ///fvs_file.close();
     if(len != header_size) {
         delete[] buf;
         delete[] header_data;
@@ -213,8 +246,8 @@ bool xvfs::read_header() {
 
 long xvfs::read_data(unsigned long start_sector, char* file_data, unsigned long file_size) {
     if(!is_open_file) return -1;
-    std::ifstream fin(file_name, std::ios_base::binary); // открываем файл
-    if (!fin.is_open()) {
+    //std::ifstream fvs_file(file_name, std::ios_base::binary); // открываем файл
+    if (!fvs_file.is_open()) {
         return -1; // не смогли октрыть файл
     }
     unsigned long next_sector = start_sector;
@@ -222,15 +255,15 @@ long xvfs::read_data(unsigned long start_sector, char* file_data, unsigned long 
     unsigned long len = 0;
     char* buf = new char[xvfs_header.sector_size];
     while(next_sector != 0xFFFFFFFF) {
-        fin.seekg(next_pos, std::ios::beg);
-        if(!fin) {
-            fin.close();
+        fvs_file.seekg(next_pos, std::ios::beg);
+        if(!fvs_file) {
+            ///fvs_file.close();
             delete[] buf;
             return -1;
         }
-        fin.read(buf, xvfs_header.sector_size);
-        if(!fin) {
-            fin.close();
+        fvs_file.read(buf, xvfs_header.sector_size);
+        if(!fvs_file) {
+            ///fvs_file.close();
             delete[] buf;
             return -1;
         }
@@ -242,15 +275,15 @@ long xvfs::read_data(unsigned long start_sector, char* file_data, unsigned long 
         next_sector = ((unsigned long*)(buf + (xvfs_header.sector_size - sizeof(unsigned long))))[0];
         next_pos = next_sector * xvfs_header.sector_size;
     }
-    fin.close();
+    ///fvs_file.close();
     delete[] buf;
     return len;
 }
 
 long xvfs::write_data(unsigned long start_sector, char* file_data, unsigned long file_size) {
     if(!is_open_file) return -1;
-    std::fstream fout(file_name, std::ios_base::binary | std::ios::in | std::ios::out | std::ios::ate);
-    if (!fout.is_open()) {
+    //std::fstream fvs_file(file_name, std::ios_base::binary | std::ios::in | std::ios::out | std::ios::ate);
+    if (!fvs_file.is_open()) {
         return -1; // не смогли октрыть файл
     }
     unsigned long next_sector = start_sector;
@@ -259,10 +292,10 @@ long xvfs::write_data(unsigned long start_sector, char* file_data, unsigned long
 
     //std::cout << "next_pos " << next_pos << std::endl;
 
-    fout.seekg (0, std::ios::end);
-    unsigned long real_file_size = fout.tellg();
-    fout.seekg (next_pos, std::ios::beg);
-    fout.clear();
+    fvs_file.seekg (0, std::ios::end);
+    unsigned long real_file_size = fvs_file.tellg();
+    fvs_file.seekg (next_pos, std::ios::beg);
+    fvs_file.clear();
     //std::cout << "real_file_size " << real_file_size << std::endl;
 
     char* buf = new char[xvfs_header.sector_size];
@@ -281,10 +314,10 @@ long xvfs::write_data(unsigned long start_sector, char* file_data, unsigned long
             // узнаем номер следующего сектора
             unsigned long offset_sector = next_pos + xvfs_header.sector_size - sizeof(unsigned long); // смещение в файле, где лежит сектор
             if(offset_sector < real_file_size) { // если смещение меньше размера файла
-                fout.seekg(offset_sector, std::ios::beg);
-                fout.clear();
-                fout.read(reinterpret_cast<char *>(&next_sector),sizeof(unsigned long));
-                fout.seekg(next_pos, std::ios::beg);
+                fvs_file.seekg(offset_sector, std::ios::beg);
+                fvs_file.clear();
+                fvs_file.read(reinterpret_cast<char *>(&next_sector),sizeof(unsigned long));
+                fvs_file.seekg(next_pos, std::ios::beg);
                 //std::cout << "read next_sector " << next_sector << std::endl;
                 if(next_sector == 0xFFFFFFFF) {
                     // выбираем один из пустых секторов
@@ -294,8 +327,8 @@ long xvfs::write_data(unsigned long start_sector, char* file_data, unsigned long
                         xvfs_header.empty_sectors.erase(xvfs_header.empty_sectors.begin());
                         //std::cout << "  empty_sectors - " << next_sector << std::endl;
                     } else {
-                        fout.seekg(0, std::ios::end);
-                        unsigned long _size = fout.tellg();
+                        fvs_file.seekg(0, std::ios::end);
+                        unsigned long _size = fvs_file.tellg();
                         next_sector = _size / xvfs_header.sector_size;
                         //std::cout << "  sectors + " << next_sector << std::endl;
                     }
@@ -313,19 +346,19 @@ long xvfs::write_data(unsigned long start_sector, char* file_data, unsigned long
         std::memcpy(buf, file_data + old_len, len - old_len);
         std::memcpy(buf + xvfs_header.sector_size - sizeof(unsigned long), &next_sector, sizeof(unsigned long));
 
-        fout.seekg (next_pos, std::ios::beg);
-        fout.write(buf, xvfs_header.sector_size);
+        fvs_file.seekg (next_pos, std::ios::beg);
+        fvs_file.write(buf, xvfs_header.sector_size);
         //real_file_size += xvfs_header.sector_size;
 
-        if(!fout) {
-            fout.close();
+        if(!fvs_file) {
+            ///fvs_file.close();
             delete[] buf;
             return -1;
         }
         if(len == file_size) break;
         next_pos = next_sector * xvfs_header.sector_size;
     }
-    fout.close();
+    ///fvs_file.close();
     delete[] buf;
     return len;
 }
@@ -333,8 +366,8 @@ long xvfs::write_data(unsigned long start_sector, char* file_data, unsigned long
 bool xvfs::clear_data(unsigned long start_sector, bool is_first_sector) {
     if(!is_open_file) return false; // файл не был открыт
     if(start_sector == 0xFFFFFFFF) return true; // если это последний сектор, просто выходим
-    std::fstream fout(file_name, std::ios_base::binary | std::ios::in | std::ios::out | std::ios::ate);
-    if (!fout.is_open()) {
+    //std::fstream fout(file_name, std::ios_base::binary | std::ios::in | std::ios::out | std::ios::ate);
+    if (!fvs_file.is_open()) {
         return false; // не смогли октрыть файл
     }
     unsigned long next_sector = start_sector;
@@ -342,8 +375,8 @@ bool xvfs::clear_data(unsigned long start_sector, bool is_first_sector) {
     while(1) {
         // узнаем номер следующего сектора
         unsigned long old_next_sector = next_sector;
-        fout.seekg(next_pos + xvfs_header.sector_size - sizeof(unsigned long), std::ios::beg);
-        fout.read(reinterpret_cast<char *>(&next_sector),sizeof(unsigned long));
+        fvs_file.seekg(next_pos + xvfs_header.sector_size - sizeof(unsigned long), std::ios::beg);
+        fvs_file.read(reinterpret_cast<char *>(&next_sector),sizeof(unsigned long));
 
         if((!is_first_sector && old_next_sector != start_sector) || (is_first_sector)) {
             // добавляем сектора в массив пустых секторов
@@ -357,22 +390,22 @@ bool xvfs::clear_data(unsigned long start_sector, bool is_first_sector) {
         if(next_sector == 0xFFFFFFFF) {
             break;
         }
-        fout.seekg(next_pos + xvfs_header.sector_size - sizeof(unsigned long), std::ios::beg);
+        fvs_file.seekg(next_pos + xvfs_header.sector_size - sizeof(unsigned long), std::ios::beg);
         unsigned long END_SECTOR = 0xFFFFFFFF;
-        fout.clear();
-        fout.write(reinterpret_cast<char *>(&END_SECTOR),sizeof(unsigned long));
+        fvs_file.clear();
+        fvs_file.write(reinterpret_cast<char *>(&END_SECTOR),sizeof(unsigned long));
         next_pos = next_sector * xvfs_header.sector_size;
     }
-    fout.close();
+    ///fvs_file.close();
     return true;
 }
 
 unsigned long xvfs::get_last_new_sector() {
-    std::ifstream fin(file_name, std::ios_base::binary); // открываем файл
-    fin.seekg(0, std::ios::end);
-    unsigned long _size = fin.tellg();
+    //std::ifstream fvs_file(file_name, std::ios_base::binary);
+    fvs_file.seekg(0, std::ios::end);
+    unsigned long _size = fvs_file.tellg();
     unsigned long last_sector = _size / xvfs_header.sector_size;
-    fin.close();
+    ///fvs_file.close();
     return last_sector;
 }
 
@@ -452,7 +485,7 @@ bool xvfs::write_file(long long hash_vfs_file, char* _data, unsigned long _len) 
             start_sector = xvfs_header.empty_sectors[0];
             xvfs_header.empty_sectors.erase(xvfs_header.empty_sectors.begin());
         } else { // если пустых секторов нет
-            start_sector = get_last_new_sector();
+            start_sector = get_last_new_sector(); // последний новый сектор
         }
         // пишем файл
         if(write_data(start_sector, data, len) == -1) {
@@ -794,7 +827,7 @@ bool xvfs::save_header() {
     std::memcpy(buf + offset, &files_size, sizeof(files_size));
     offset += sizeof(files_size);
     // запишем сами файлы
-    for(int i = 0; i < files_size; ++i) {
+    for(unsigned long i = 0; i < files_size; ++i) {
         _xvfs_file_header i_file_header = xvfs_header.files[i];
         std::memcpy(buf + offset, &i_file_header, sizeof(_xvfs_file_header));
         offset += sizeof(_xvfs_file_header);
@@ -803,7 +836,7 @@ bool xvfs::save_header() {
     std::memcpy(buf + offset, &empty_sectors_size, sizeof(empty_sectors_size));
     offset += sizeof(empty_sectors_size);
     // запишем сами пустые сектора
-    for(int i = 0; i < empty_sectors_size; ++i) {
+    for(unsigned long i = 0; i < empty_sectors_size; ++i) {
         std::memcpy(buf + offset, &xvfs_header.empty_sectors[i], sizeof(unsigned long));
         offset += sizeof(unsigned long);
     }

@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <fstream>
 
 //#define XFVS_USE_ZLIB
 
@@ -50,6 +51,7 @@ public:
     };
 
 private:
+    std::fstream fvs_file;
 
     long binary_search_first(std::vector<_xvfs_file_header> arr, long long key, long left, long right);
 
@@ -127,6 +129,8 @@ public:
      * \param compression_type желаемый тип компресии (из перечисления xfvsCompressionType)
      */
     xvfs(std::string file_name, int sector_size, int compression_type);
+
+    ~xvfs();
 
     /** \brief Состояние файла виртуальной файловой системы
      * \return вернет true если файл виртуальной файловой системы был открыт или создан
