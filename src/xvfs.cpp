@@ -847,3 +847,60 @@ bool xvfs::save_header() {
     delete[] buf;
     return true;
 }
+
+bool xvfs::open(long long hash_vfs_file, int mode) {
+    open_mode = mode; // запоминаем режим
+    open_hash = hash_vfs_file; // запоминаем hash файла
+    open_offset = 0;    // ставим смещение в файле в 0
+    open_buffer_write.clear(); // очищаем буфер файла
+    if(open_mode == READ_FILE) {
+        open_offset = read_file(hash_vfs_file, open_buffer_read);
+        if(open_offset == -1) return false;
+    }
+    return true;
+}
+
+long xvfs::get_size() {
+    if(open_mode == READ_FILE) return open_offset;
+    else if(open_mode == WRITE_FILE) return open_buffer_write.size();
+    return -1;
+}
+
+long xvfs::write(char* data, long size) {
+    if(open_mode != WRITE_FILE) return -1;
+    for(long i = 0; i < size; ++i) {
+        open_buffer_write.push_back(data[i]);
+    }
+    return size;
+}
+
+long xvfs::read(char* data, long size) {
+    if(open_mode != READ_FILE) return -1;
+    for(long i = 0; i < size; ++i) {
+        long pos = open_offset + i;
+        if(pos >= open_offset) return i;
+        data[i] = open_buffer_read[pos];
+    }
+    open_offset += size;
+    return size;
+}
+
+bool xvfs::close() {
+    if(open_mode == READ_FILE) {
+        if(open_buffer_read != NULL) delete[] open_buffer_read;
+        open_mode = -1;
+        return true;
+    } else
+    if(open_mode == WRITE_FILE) {
+        if(!write_file(open_hash, (char*)open_buffer_write.c_str(), open_buffer_write.size())) {
+            open_buffer_write.clear();
+            open_mode = -1;
+            return false;
+        }
+        open_buffer_write.clear();
+        open_mode = -1;
+        return true;
+    }
+    open_mode = -1;
+    return false;
+}

@@ -27,7 +27,7 @@ public:
     struct _xvfs_file_header {
         long long hash;                                 /**< Хэш файла */
         unsigned long size;                             /**< Размер файла */
-        unsigned long real_size;
+        unsigned long real_size;                        /**< Размер файла после декомпресии */
         unsigned long start_sector;                     /**< Начальный сектор файла */
 
         _xvfs_file_header() {};
@@ -51,15 +51,29 @@ public:
     };
 
 private:
-    std::fstream fvs_file;
+    std::fstream fvs_file;                              /**< Файл виртуальной файловой системы */
+    // переменные для работы с функциями
+    // open, write, read, get_size, close
+    int open_mode = 0;
+    long long open_hash = 0;
+    long open_offset = 0;
+    std::string open_buffer_write;
+    char* open_buffer_read = NULL;
 
+    /** \brief Бинарный поиск (для заголовка vfs файла)
+     * \param arr массив заголовка
+     * \param key ключ
+     * \param left начальный элемент поиска
+     * \param right конечный элемент поиска
+     * \return позиция найденного элемента
+     */
     long binary_search_first(std::vector<_xvfs_file_header> arr, long long key, long left, long right);
 
     /** \brief Структура заголовка
      */
     struct _xvfs_header {
         unsigned long sector_size;                      /**< Размер сектора */
-        long compression_type;                           /**< Тип компрессии */
+        long compression_type;                          /**< Тип компрессии */
         std::vector<_xvfs_file_header> files;           /**< Файлы */
         std::vector<unsigned long> empty_sectors;       /**< Пустые сектора */
         unsigned long get_size() {
@@ -206,6 +220,46 @@ public:
         files = xvfs_header.files;
         empty_sectors = xvfs_header.empty_sectors;
     }
+
+    enum xfvsOpenFileMode {
+        READ_FILE = 0,
+        WRITE_FILE = 1
+    };
+
+    /** \brief Открыть виртуальный файл для записи или чтения
+     * Данная функция подразумевает использование write() или read().
+     * В конце объязательно вызвать close()
+     * \param hash_vfs_file хэш файла
+     * \param mode режим (READ_FILE или WRITE_FILE)
+     * \return true в случае успеха
+     */
+    bool open(long long hash_vfs_file, int mode);
+
+    /** \brief Получить длину фиртуального файла
+     * Данную функцию можно вызывать после open()
+     * \return Длина файла или -1 в случае ошибки
+     */
+    long get_size();
+
+    /** \brief Записать в открытый файл
+     * \param data буфер с данными
+     * \param size размер буфера
+     * \return вернет размер size в случае успеха или -1 в случае ошибки
+     */
+    long write(char* data, long size);
+
+    /** \brief Считать из открытого виртуального файла
+     * \param data буфер с данными
+     * \param size размер буфера
+     * \return вернет количество считанных байт
+     */
+    long read(char* data, long size);
+
+    /** \brief Закрыть виртуальный файл
+     * Данная функция в режиме WRITE_FILE запишет данные в файл
+     * \return вернет true в случае успеха
+     */
+    bool close();
 
     /** \brief Посчитать CRC64
      * Данную функцию можно использовать для создания уникального id файла
