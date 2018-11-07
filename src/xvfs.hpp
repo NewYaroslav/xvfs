@@ -56,8 +56,9 @@ private:
     // open, write, read, get_size, close
     int open_mode = 0;
     long long open_hash = 0;
-    long open_offset = 0;
-    std::string open_buffer_write;
+    long open_size = 0;
+    long open_pos = 0;
+    char* open_buffer_write = NULL;
     char* open_buffer_read = NULL;
 
     /** \brief Бинарный поиск (для заголовка vfs файла)
@@ -107,6 +108,16 @@ private:
     const long long poly = 0xC96C5795D7870F42;
     void generate_table();
 public:
+
+    enum xfvsErrorType {
+        ERROR_VFS_FILE_NOT_OPEN = -1,
+        ERROR_VFS_READING_FILE = -2,
+        ERROR_VFS_WRITING_FILE = -3,
+        ERROR_VIRTUAL_FILE_NOT_FOUND = -4,
+        ERROR_VIRTUAL_FILE_DECOMPRESSION = -5,
+        ERROR_UNKNOWN_DECOMPRESSION_METHOD = -6,
+        ERROR_VIRTUAL_FILE_NOT_OPEN = -7
+    };
 
     enum xfvsCompressionType {
         NO_COMPRESSION = 0,
@@ -235,6 +246,22 @@ public:
      */
     bool open(long long hash_vfs_file, int mode);
 
+    /** \brief Открыть виртуальный файл для записи или чтения
+     * Данная функция подразумевает использование write() или read().
+     * В конце объязательно вызвать close()
+     * \param vfs_file_name имя файла
+     * \param mode режим (READ_FILE или WRITE_FILE)
+     * \return true в случае успеха
+     */
+    bool open(std::string vfs_file_name, int mode);
+
+    /** \brief Зарезервировать память перед записью
+     * Данная функция вызывается перед записью в файл
+     * \param size размер файла
+     * \return true в случае успеха
+     */
+    bool reserve_memory(unsigned long size);
+
     /** \brief Получить длину фиртуального файла
      * Данную функцию можно вызывать после open()
      * \return Длина файла или -1 в случае ошибки
@@ -246,14 +273,14 @@ public:
      * \param size размер буфера
      * \return вернет размер size в случае успеха или -1 в случае ошибки
      */
-    long write(char* data, long size);
+    long write(void* data, long size);
 
     /** \brief Считать из открытого виртуального файла
      * \param data буфер с данными
      * \param size размер буфера
      * \return вернет количество считанных байт
      */
-    long read(char* data, long size);
+    long read(void* data, long size);
 
     /** \brief Закрыть виртуальный файл
      * Данная функция в режиме WRITE_FILE запишет данные в файл

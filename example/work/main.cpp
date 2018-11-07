@@ -4,19 +4,19 @@
 
 using namespace std;
 
-int main()
-{
-    xvfs VFS("test.hex", 48, xvfs::USE_LZ4);
+int main() {
+    std::cout << "start test" << std::endl;
+    xvfs VFS("test2.hex", 48, xvfs::USE_ZLIB_LEVEL_9);
     if(VFS.is_open()) cout << "is_open" << endl;
     // тестовые данные
-    int test_size_1 = 4567;
-    char test_data_1[4567];
+    int test_size_1 = 347;
+    char test_data_1[347];
 
-    int test_size_2 = 440;
-    char test_data_2[440];
+    int test_size_2 = 333444;
+    char test_data_2[333444];
 
-    int test_size_3 = 11234;
-    char test_data_3[11234];
+    int test_size_3 = 1200;
+    char test_data_3[1200];
 
     int test_size_4 = 0;
 
@@ -29,6 +29,48 @@ int main()
     for(int i = 0; i < test_size_3; ++i) {
         test_data_3[i] = rand() % 4;
     }
+
+    //
+    cout << "open file test_a" << endl;
+    if(VFS.open("test_a", VFS.WRITE_FILE)) cout << "open test_a ok" << endl;
+    else cout << "open test_a error" << endl;
+
+    for(int i = 0; i < test_size_3; ++i) {
+        char var = i % 10;
+        VFS.write(&var, 1);
+    }
+
+    if(VFS.close()) cout << "close test_a ok" << endl;
+    else cout << "close test_a error" << endl;
+    //
+
+    //
+    cout << "open file test_a" << endl;
+    if(VFS.open("test_a", VFS.WRITE_FILE)) cout << "open test_a ok" << endl;
+    else cout << "open test_a error" << endl;
+
+    for(int i = 0; i < 50000; ++i) {
+        char var = i % 10;
+        VFS.write(&var, 1);
+    }
+
+    if(VFS.close()) cout << "close test_a ok" << endl;
+    else cout << "close test_a error" << endl;
+    //
+
+    //
+    cout << "open file test_b" << endl;
+    if(VFS.open("test_b", VFS.WRITE_FILE)) cout << "open test_b ok" << endl;
+    else cout << "open test_b error" << endl;
+
+    for(int i = 0; i < 20000; ++i) {
+        char var = i % 22;
+        VFS.write(&var, 1);
+    }
+
+    if(VFS.close()) cout << "close test_b ok" << endl;
+    else cout << "close test_b error" << endl;
+    //
 
     for(int i = 0; i < 10; ++i) {
         if(VFS.write_file("xxx_" + std::to_string(i), test_data_1, test_size_1)) cout << "write xxx_" + std::to_string(i) + " ok" << endl;
@@ -64,6 +106,12 @@ int main()
         delete[] read_data;
         read_data = NULL;
     }
+
+    cout << "read file test_a" << endl;
+    char* read_data_a = NULL;
+    long file_size_a = VFS.read_file("test_a", read_data_a);
+    if(file_size_a != - 1) cout << "read test_a, size: " << file_size_a << endl;
+    else cout << "read test_a error" << endl;
 
     cout << "read file test_1" << endl;
     char* read_data_1 = NULL;
@@ -112,6 +160,26 @@ int main()
         }
     }
 
+    //
+    cout << "open file test_b" << endl;
+    if(VFS.open("test_b", VFS.READ_FILE)) cout << "open test_b ok" << endl;
+    else cout << "open test_b error" << endl;
+
+    long len_test_b = VFS.get_size();
+    cout << "read file test_b" << endl;
+    for(int i = 0; i < len_test_b; ++i) {
+        char temp = i % 22;
+        char var;
+        long len = VFS.read(&var, 1);
+        if(len != 1) std::cout << "error " << len << std::endl;
+        if(var != temp) std::cout << "error var != temp" << std::endl;
+    }
+
+    if(VFS.close()) cout << "close test_b ok" << endl;
+    else cout << "close test_b error" << endl;
+    //
+
+    if(read_data_a != NULL) delete[] read_data_a;
     if(read_data_1 != NULL) delete[] read_data_1;
     if(read_data_2 != NULL) delete[] read_data_2;
     if(read_data_3 != NULL) delete[] read_data_3;
