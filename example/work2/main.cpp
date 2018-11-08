@@ -10,7 +10,7 @@ int main() {
     if(VFS.is_open()) cout << "is_open" << endl;
     // тестовые данные
     int num_test = 0;
-    while(num_test < 1000) {
+    while(num_test < 2) {
         num_test++;
         for(int i = 0; i < 10; ++i) {
             long max_size = 1000 + (rand() % 100) * 100;

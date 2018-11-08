@@ -107,7 +107,7 @@ xvfs::xvfs(std::string file_name, int sector_size, int compression_type) {
     xvfs::file_name = file_name; // запоминаем имя файла виртуальноц файловой системы
     generate_table(); // инициализируем crc таблицу
     if(!check_file(file_name)) {
-        std::cout << "!check_file" << std::endl;
+        //std::cout << "!check_file" << std::endl;
         if(sector_size < min_sector_size || compression_type < 0 || (compression_type > USE_ZLIB_LEVEL_9 && compression_type != USE_MINLIZO && compression_type != USE_LZ4)) {
             is_open_file = false;
             return;
@@ -130,7 +130,7 @@ xvfs::xvfs(std::string file_name, int sector_size, int compression_type) {
             save_header();
         }
     } else {
-        std::cout << "check_file" << std::endl;
+        //std::cout << "check_file" << std::endl;
         fvs_file = std::fstream(file_name, std::ios_base::binary | std::ios::in | std::ios::out | std::ios::ate);
         if (!fvs_file.is_open()) {
             is_open_file = false;
@@ -883,9 +883,9 @@ long xvfs::get_size() {
 long xvfs::write(void* data, long size) {
     if(open_mode != WRITE_FILE) return ERROR_VIRTUAL_FILE_NOT_OPEN;
     if(open_pos >= open_size) {
-        std::cout << "(open_pos + size) >= open_size" << std::endl;
-        std::cout << "open_pos " << open_pos << std::endl;
-        std::cout << "open_size " << open_size << std::endl;
+        //std::cout << "(open_pos + size) >= open_size" << std::endl;
+        //std::cout << "open_pos " << open_pos << std::endl;
+        //std::cout << "open_size " << open_size << std::endl;
         return 0;
     }
     std::memcpy(open_buffer_write + open_pos, data, size);
