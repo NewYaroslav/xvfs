@@ -46,6 +46,7 @@
 			<Add option="-Wall" />
 			<Add option="-fexceptions" />
 		</Compiler>
+		<Unit filename="../../include/xvfs.hpp" />
 		<Unit filename="../../lib/minilzo-2.10/lzoconf.h" />
 		<Unit filename="../../lib/minilzo-2.10/lzodefs.h" />
 		<Unit filename="../../lib/minilzo-2.10/minilzo.c">
